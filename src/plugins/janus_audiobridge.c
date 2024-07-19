@@ -952,7 +952,7 @@ room-<unique room ID>: {
 	"audiobridge" : "event",
 	"room" : <numeric ID of the room>,
 	"id" : <unique ID assigned to the participant>,
-	"request" : {
+	"result" : {
 		"event" : "dtmf",
 		"signal" : "<dtmf signal received, values: 1-9, *, #, A-D>",
 		"duration" : <duration of the dtmf signal>
@@ -987,7 +987,6 @@ room-<unique room ID>: {
 		"audiolevel_ext" : <ID of the audiolevel RTP extension, if used (optional)>,
 		"fec" : <true|false, whether FEC should be enabled for the Opus stream (optional; only needed in case Opus is used)>,
 		"dtmf_pt": <RFC2833 RTP payload type that dtmf signal will be received (optional)>
-
 	}
 }
 \endverbatim
@@ -7376,7 +7375,7 @@ static void *janus_audiobridge_handler(void *data) {
 						participant->plainrtp_media.dtmf_pt = -1;
 						JANUS_LOG(LOG_WARN, "Invalid dtmf_pt %"SCNi32",\n", dtmf_pt);
 					}
-				}	
+				}
 				/* Create the socket */
 				janus_mutex_lock(&participant->pmutex);
 				janus_audiobridge_plainrtp_media_replace_remote(&participant->plainrtp_media, g_strdup(ip), port);
