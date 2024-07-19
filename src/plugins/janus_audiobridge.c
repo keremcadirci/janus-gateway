@@ -920,8 +920,8 @@ room-<unique room ID>: {
 		"port" : <port you want media to be sent to>,
 		"payload_type" : <payload type to use for RTP packets (optional; only needed in case Opus is used, automatic for G.711)>,
 		"audiolevel_ext" : <ID of the audiolevel RTP extension, if used (optional)>,
-		"fec" : <true|false, whether FEC from Janus to the user should be enabled for the Opus stream (optional; only needed in case Opus is used)>
-		"dtmf_pt": <RFC2833 RTP payload type that dtmf signal will be received (optional)>,
+		"fec" : <true|false, whether FEC from Janus to the user should be enabled for the Opus stream (optional; only needed in case Opus is used)>,
+		"dtmf_pt": <RFC2833 RTP payload type that dtmf signal will be received (optional)>
 	}
 }
 \endverbatim
