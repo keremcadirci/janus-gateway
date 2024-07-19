@@ -985,7 +985,9 @@ room-<unique room ID>: {
 		"port" : <port you want media to be sent to>,
 		"payload_type" : <payload type to use for RTP packets (optional; only needed in case Opus is used, automatic for G.711)>,
 		"audiolevel_ext" : <ID of the audiolevel RTP extension, if used (optional)>,
-		"fec" : <true|false, whether FEC should be enabled for the Opus stream (optional; only needed in case Opus is used)>
+		"fec" : <true|false, whether FEC should be enabled for the Opus stream (optional; only needed in case Opus is used)>,
+		"dtmf_pt": <RFC2833 RTP payload type that dtmf signal will be received (optional)>
+
 	}
 }
 \endverbatim
@@ -7363,7 +7365,18 @@ static void *janus_audiobridge_handler(void *data) {
 					opus_encoder_ctl(participant->encoder, OPUS_SET_INBAND_FEC(participant->fec));
 					opus_encoder_ctl(participant->encoder, OPUS_SET_PACKET_LOSS_PERC(participant->expected_loss));
 				}
-
+				/* rfc2833 payload type is set */
+				json_t *dtmf_pt_json =json_object_get(rtp, "dtmf_pt");
+				if(dtmf_pt_json) {
+					int dtmf_pt = json_integer_value(dtmf_pt_json);
+					if(janus_is_rfc2833_payload_type(dtmf_pt)) {
+						participant->plainrtp_media.dtmf_pt = dtmf_pt;
+					}
+					else {
+						participant->plainrtp_media.dtmf_pt = -1;
+						JANUS_LOG(LOG_WARN, "Invalid dtmf_pt %"SCNi32",\n", dtmf_pt);
+					}
+				}	
 				/* Create the socket */
 				janus_mutex_lock(&participant->pmutex);
 				janus_audiobridge_plainrtp_media_replace_remote(&participant->plainrtp_media, g_strdup(ip), port);
