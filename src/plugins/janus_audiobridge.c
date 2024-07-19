@@ -950,10 +950,10 @@ room-<unique room ID>: {
 {
 	"audiobridge" : "event",
 	"room" : <numeric ID of the room>,
-	"id" : <unique ID assigned to the participant>,	
+	"id" : <unique ID assigned to the participant>,
 	"request" : {
 		"event" : "dtmf",
-		"dtmf" : "<dtmf signal received, values: 1-9, *, #, A-D>",
+		"signal" : "<dtmf signal received, values: 1-9, *, #, A-D>",
 		"duration" : <duration of the dtmf signal>
 	}
 }
