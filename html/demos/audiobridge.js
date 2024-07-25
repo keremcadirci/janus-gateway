@@ -14,6 +14,8 @@ var remoteStream = null;
 var myroom = 1234;	// Demo room
 if(getQueryStringValue("room") !== "")
 	myroom = parseInt(getQueryStringValue("room"));
+if(getQueryStringValue("pin") !== "")
+	mypin = getQueryStringValue("pin");
 var acodec = (getQueryStringValue("acodec") !== "" ? getQueryStringValue("acodec") : null);
 var stereo = false;
 if(getQueryStringValue("stereo") !== "")
@@ -464,7 +466,7 @@ function registerUsername() {
 			$('#register').removeAttr('disabled').click(registerUsername);
 			return;
 		}
-		let register = { request: "join", room: myroom, display: username, suspended: audiosuspended };
+		let register = { request: "join", room: myroom, display: username, pin: mypin, suspended: audiosuspended };
 		myusername = escapeXmlTags(username);
 		// Check if we need to join using G.711 instead of (default) Opus
 		if(acodec === 'opus' || acodec === 'pcmu' || acodec === 'pcma')
