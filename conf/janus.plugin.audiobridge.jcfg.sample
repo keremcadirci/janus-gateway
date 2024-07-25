@@ -37,6 +37,7 @@
 # rtp_forward_srtp_suite = length of authentication tag (32 or 80)
 # rtp_forward_srtp_crypto = "<key to use as crypto (base64 encoded key as in SDES)>"
 # rtp_forward_always_on = true|false, whether silence should be forwarded when the room is empty (optional: false used if missing)
+# rfc2833_payload_type = payload type (97-127) used while sending dtmf using RTP RFC2833, default=97
 #}
 
 general: {
