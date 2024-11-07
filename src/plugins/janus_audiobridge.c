@@ -8300,6 +8300,7 @@ static void *janus_audiobridge_handler(void *data) {
 			uint16_t last_seq = participant->context.last_seq;
 			rtp_header->version = 2;
 			rtp_header->type = audiobridge->rfc2833_payload_type;
+			rtp_header->timestamp = htonl(participant->context.last_ts);
 			janus_rtp_header_update(rtp_header, &participant->context, FALSE, 0);
 			rtp_header->markerbit = 1;
 			rtp_header->extension = 0;
