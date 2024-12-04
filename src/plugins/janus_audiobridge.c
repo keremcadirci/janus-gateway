@@ -1861,6 +1861,7 @@ typedef struct janus_audiobridge_participant {
 	volatile gint suspended;	/* Whether this participant has been temporarily suspended */
 	volatile gint paused_events;/* Whether sending events to this participant has been paused because they're suspended */
 	volatile gint destroyed;	/* Whether this participant has been destroyed */
+	gboolean mjr_record_active; /* Whether or not a mjr record file is created and recording is ongoing */
 	janus_refcount ref;			/* Reference counter for this participant */
 } janus_audiobridge_participant;
 
@@ -4122,12 +4123,10 @@ static json_t *janus_audiobridge_process_synchronous_request(janus_audiobridge_s
 					/* Do we need to do something with the recordings right now? */
 					if(participant->mjr_active != prev_mjrs_active) {
 						/* Something changed */
+						participant->mjr_record_active = FALSE;
 						if(!participant->mjr_active) {
 							/* Not recording (anymore?) */
 							janus_audiobridge_recorder_close(participant);
-						} else {
-							/* We've started recording, send a PLI/FIR and go on */
-							janus_audiobridge_recorder_create(participant);
 						}
 					}
 					janus_mutex_unlock(&participant->rec_mutex);
@@ -6060,6 +6059,7 @@ static json_t *janus_audiobridge_process_synchronous_request(janus_audiobridge_s
 					janus_mutex_lock(&participant->rec_mutex);
 					janus_audiobridge_recorder_close(participant);
 					participant->mjr_active = FALSE;
+					participant->mjr_record_active = FALSE;
 					janus_mutex_unlock(&participant->rec_mutex);
 				}
 			} else {
@@ -6098,7 +6098,6 @@ static json_t *janus_audiobridge_process_synchronous_request(janus_audiobridge_s
 							g_free(participant->mjr_base);
 							participant->mjr_base = g_strdup(recording_base);
 						}
-						janus_audiobridge_recorder_create(participant);
 						participant->mjr_active = TRUE;
 					}
 				}
@@ -6423,6 +6422,20 @@ void janus_audiobridge_incoming_rtp(janus_plugin_session *handle, janus_plugin_r
 		return;
 	char *buf = packet->buffer;
 	uint16_t len = packet->length;
+	/* Create mjr file with the first RTP received by participant, because we want that the timestamp in the filename should be set when the first RTP received */
+	janus_audiobridge_room *audiobridge = participant->room;
+	if(audiobridge->mjrs && participant->mjr_active && !participant->mjr_record_active){
+		participant->mjr_record_active = TRUE;
+		/* Start recording (ignore if recording already) */
+		if(participant->arc != NULL) {
+			JANUS_LOG(LOG_WARN, "Already recording participant's audio (room %s, user %s)\n",
+				participant->room->room_id_str, participant->user_id_str);
+		} else {
+			JANUS_LOG(LOG_INFO, "Starting recording of participant's audio (room %s, user %s)\n",
+			participant->room->room_id_str, participant->user_id_str);
+			janus_audiobridge_recorder_create(participant);
+		}
+	}
 	/* Save the frame if we're recording this leg */
 	janus_recorder_save_frame(participant->arc, buf, len);
 	if(g_atomic_int_get(&participant->active) && (participant->codec != JANUS_AUDIOCODEC_OPUS ||
@@ -6589,6 +6602,7 @@ static void janus_audiobridge_hangup_media_internal(janus_plugin_session *handle
 	janus_mutex_lock(&participant->rec_mutex);
 	janus_audiobridge_recorder_close(participant);
 	participant->mjr_active = FALSE;
+	participant->mjr_record_active = FALSE;
 	janus_mutex_unlock(&participant->rec_mutex);
 	/* Free the participant resources */
 	janus_mutex_lock(&participant->qmutex);
@@ -6984,6 +6998,8 @@ static void *janus_audiobridge_handler(void *data) {
 				participant->encoder = NULL;
 				participant->decoder = NULL;
 				participant->reset = FALSE;
+				participant->mjr_active = FALSE;
+				participant->mjr_record_active = FALSE;
 				participant->fec = FALSE;
 				participant->last_timestamp = 0;
 				participant->last_seq = 0;
@@ -7207,13 +7223,13 @@ static void *janus_audiobridge_handler(void *data) {
 					} else {
 						JANUS_LOG(LOG_INFO, "Starting recording of participant's audio (room %s, user %s)\n",
 							participant->room->room_id_str, participant->user_id_str);
-						janus_audiobridge_recorder_create(participant);
 						participant->mjr_active = TRUE;
 					}
 				} else {
 					/* Stop recording (ignore if not recording) */
 					janus_audiobridge_recorder_close(participant);
 					participant->mjr_active = FALSE;
+					participant->mjr_record_active = FALSE;
 				}
 			}
 			janus_mutex_unlock(&participant->rec_mutex);
@@ -7627,13 +7643,13 @@ static void *janus_audiobridge_handler(void *data) {
 					} else {
 						JANUS_LOG(LOG_INFO, "Starting recording of participant's audio (room %s, user %s)\n",
 							participant->room->room_id_str, participant->user_id_str);
-						janus_audiobridge_recorder_create(participant);
 						participant->mjr_active = TRUE;
 					}
 				} else {
 					/* Stop recording (ignore if not recording) */
 					janus_audiobridge_recorder_close(participant);
 					participant->mjr_active = FALSE;
+					participant->mjr_record_active = FALSE;
 				}
 			}
 			janus_mutex_unlock(&participant->rec_mutex);
@@ -8017,6 +8033,7 @@ static void *janus_audiobridge_handler(void *data) {
 			janus_mutex_lock(&participant->rec_mutex);
 			janus_audiobridge_recorder_close(participant);
 			participant->mjr_active = FALSE;
+			participant->mjr_record_active = FALSE;
 			janus_mutex_unlock(&participant->rec_mutex);
 			janus_refcount_decrease(&old_audiobridge->ref);
 			/* Done, join the new one */
@@ -8210,6 +8227,7 @@ static void *janus_audiobridge_handler(void *data) {
 			janus_mutex_lock(&participant->rec_mutex);
 			janus_audiobridge_recorder_close(participant);
 			participant->mjr_active = FALSE;
+			participant->mjr_record_active = FALSE;
 			janus_mutex_unlock(&participant->rec_mutex);
 			/* Also notify event handlers */
 			if(notify_events && gateway->events_is_enabled()) {
