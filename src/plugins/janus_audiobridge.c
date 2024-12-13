@@ -837,7 +837,8 @@ room-<unique room ID>: {
  * one, without requiring you to do a \c leave + \c join + \c configure
  * round. Of course remember not to pass any JSEP-related payload when
  * doing a \c changeroom as the same pre-existing PeerConnection will be
- * re-used for the purpose.
+ * re-used for the purpose. Notice that an admin can use \c changeroom to move
+ * a participant from one room to another.
  *
  * Notice that you can also ask the AudioBridge plugin to send you an offer,
  * when you join, rather than providing one yourself: this means that the
@@ -1078,7 +1079,10 @@ room-<unique room ID>: {
 	"expected_loss" : <0-20, a percentage of the expected loss (capped at 20%), only needed in case outgoing FEC is used; optional, default is 0 (FEC disabled even when negotiated) or the room default>,
 	"volume" : <new volume percent value (see "join" for more info)>,
 	"spatial_position" : <in case spatial audio is enabled for the room, new panning of this participant (0=left, 50=center, 100=right)>,
-	"denoise" : <true|false, whether denoising via RNNoise should be performed for this participant (default=room value, or whether it was active before)>
+	"denoise" : <true|false, whether denoising via RNNoise should be performed for this participant (default=room value, or whether it was active before)>,
+	"current_room": <Numeric ID of the current room of the participant. Optional. An admin can changeroom of a participant using secret, current_room and current_id>,
+	"current_id": <Unique ID of the participant that we want to move. Optional. An admin can changeroom of a participant using secret, current_room and current_id>,
+	"secret": <Represent admin secret. Optional. An admin can changeroom of a participant using secret, current_room and current_id.>
 }
 \endverbatim
  *
@@ -7323,15 +7327,77 @@ static void *janus_audiobridge_handler(void *data) {
 			} else {
 				room_id_str = (char *)json_string_value(room);
 			}
-			janus_mutex_lock(&rooms_mutex);
-			janus_audiobridge_participant *participant = (janus_audiobridge_participant *)session->participant;
-			if(participant == NULL || participant->room == NULL) {
+			janus_audiobridge_participant *participant;
+			if(json_object_get(root, "secret") != NULL && json_object_get(root, "current_room") != NULL && json_object_get(root, "current_id") != NULL ) {
+
+				json_t *current_room = json_object_get(root, "current_room");
+				json_t *current_id = json_object_get(root, "current_id");
+				guint64 current_room_id = 0;
+				char current_room_id_num[30], *current_room_id_str = NULL;
+				if(!string_ids) {
+					current_room_id = json_integer_value(current_room);
+					g_snprintf(current_room_id_num, sizeof(current_room_id_num), "%"SCNu64, current_room_id);
+					current_room_id_str = current_room_id_num;
+				} else {
+					current_room_id_str = (char *)json_string_value(current_room);
+				}
+				janus_mutex_lock(&rooms_mutex);
+				janus_audiobridge_room *audiobridge = g_hash_table_lookup(rooms,
+					string_ids ? (gpointer)current_room_id_str : (gpointer)&current_room_id);
+				if(audiobridge == NULL) {
+					janus_mutex_unlock(&rooms_mutex);
+					error_code = JANUS_AUDIOBRIDGE_ERROR_NO_SUCH_ROOM;
+					JANUS_LOG(LOG_ERR, "No such room (%s)\n", current_room_id_str);
+					g_snprintf(error_cause, 512, "No such room (%s)", current_room_id_str);
+					goto error;
+				}
+				janus_refcount_increase(&audiobridge->ref);
 				janus_mutex_unlock(&rooms_mutex);
-				JANUS_LOG(LOG_ERR, "Can't change room (not in a room in the first place)\n");
-				error_code = JANUS_AUDIOBRIDGE_ERROR_NOT_JOINED;
-				g_snprintf(error_cause, 512, "Can't change room (not in a room in the first place)");
-				goto error;
+				janus_mutex_lock(&audiobridge->mutex);
+				/* A secret may be required for this action */
+				JANUS_CHECK_SECRET(audiobridge->room_secret, root, "secret", error_code, error_cause,
+					JANUS_AUDIOBRIDGE_ERROR_MISSING_ELEMENT, JANUS_AUDIOBRIDGE_ERROR_INVALID_ELEMENT, JANUS_AUDIOBRIDGE_ERROR_UNAUTHORIZED);
+				if(error_code != 0) {
+					janus_mutex_unlock(&audiobridge->mutex);
+					janus_refcount_decrease(&audiobridge->ref);
+					goto error;
+				}
+				guint64 current_user_id = 0;
+				char current_user_id_num[30], *current_user_id_str = NULL;
+				if(!string_ids) {
+					current_user_id = json_integer_value(current_id);
+					g_snprintf(current_user_id_num, sizeof(current_user_id_num), "%"SCNu64, current_user_id);
+					current_user_id_str = current_user_id_num;
+				} else {
+					current_user_id_str = (char *)json_string_value(current_id);
+				}
+				participant = g_hash_table_lookup(audiobridge->participants,
+					string_ids ? (gpointer)current_user_id_str : (gpointer)&current_user_id);
+				if(participant == NULL) {
+					janus_mutex_unlock(&audiobridge->mutex);
+					janus_refcount_decrease(&audiobridge->ref);
+					JANUS_LOG(LOG_ERR, "No such user %s in room %s\n", current_user_id_str, current_room_id_str);
+					error_code = JANUS_AUDIOBRIDGE_ERROR_NO_SUCH_USER;
+					g_snprintf(error_cause, 512, "No such user %s in room %s", current_user_id_str, current_room_id_str);
+					goto error;
+				}
+				janus_mutex_unlock(&audiobridge->mutex);
+				janus_refcount_decrease(&audiobridge->ref);
 			}
+			else{
+
+				janus_mutex_lock(&rooms_mutex);
+				participant = (janus_audiobridge_participant *)session->participant;
+				if(participant == NULL || participant->room == NULL) {
+					janus_mutex_unlock(&rooms_mutex);
+					JANUS_LOG(LOG_ERR, "Can't change room (not in a room in the first place)\n");
+					error_code = JANUS_AUDIOBRIDGE_ERROR_NOT_JOINED;
+					g_snprintf(error_cause, 512, "Can't change room (not in a room in the first place)");
+					goto error;
+				}
+				janus_mutex_unlock(&rooms_mutex);
+			}
+			janus_mutex_lock(&rooms_mutex);
 			/* Is this the same room we're in? */
 			if(participant->room && ((!string_ids && participant->room->room_id == room_id) ||
 					(string_ids && participant->room->room_id_str && !strcmp(participant->room->room_id_str, room_id_str)))) {
