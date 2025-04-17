@@ -1760,6 +1760,12 @@ static void janus_audiobridge_file_free(janus_audiobridge_file *ctx) {
 #endif
 
 /* In case we need to support plain RTP participants, this struct helps with that */
+typedef struct janus_plainrtp_dtmf {
+	uint16_t dtmf_event_id;
+	uint32_t timestamp;
+} janus_plainrtp_dtmf;
+
+/* In case we need to support plain RTP participants, this struct helps with that */
 typedef struct janus_audiobridge_plainrtp_media {
 	char *remote_audio_ip;
 	int ready:1;
@@ -1773,6 +1779,7 @@ typedef struct janus_audiobridge_plainrtp_media {
 	GThread *thread;
 	volatile int initialized;
 	int dtmf_pt;
+	janus_plainrtp_dtmf latest_dtmf;
 } janus_audiobridge_plainrtp_media;
 static void janus_audiobridge_plainrtp_media_cleanup(janus_audiobridge_plainrtp_media *media);
 static int janus_audiobridge_plainrtp_allocate_port(janus_audiobridge_plainrtp_media *media);
