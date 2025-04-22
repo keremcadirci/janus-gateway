@@ -9291,6 +9291,8 @@ static void *janus_audiobridge_participant_thread(void *data) {
 					/* Access the payload */
 					char *buffer = bpkt->rtp ? bpkt->rtp->buffer : NULL;
 					uint16_t len = bpkt->rtp ? bpkt->rtp->length : 0;
+					/* Handle rtp if rfc2833 event*/
+					janus_audiobridge_send_dtmf_event(participant, buffer, len);
 					int plen = 0;
 					const unsigned char *payload = (const unsigned char *)janus_rtp_payload(buffer, len, &plen);
 					if(!payload) {
@@ -9300,8 +9302,6 @@ static void *janus_audiobridge_participant_thread(void *data) {
 						janus_audiobridge_buffer_packet_destroy(bpkt);
 						break;
 					}
-					/* Handle rtp if rfc2833 event*/
-					janus_audiobridge_send_dtmf_event(participant, buffer, len);
 					rtp = (janus_rtp_header *)buffer;
 					first = FALSE;
 					lost_packets_gap = 0;
