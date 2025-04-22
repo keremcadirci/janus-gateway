@@ -2415,12 +2415,8 @@ static void janus_audiobridge_send_dtmf_event(janus_audiobridge_participant *par
 	if(participant->plainrtp_media.dtmf_pt <= 0)
 		return;
 	janus_rtp_header *rtp_header = (janus_rtp_header *)buffer;
-	if(rtp_header->type != participant->plainrtp_media.dtmf_pt){
+	if(rtp_header->type != participant->plainrtp_media.dtmf_pt)
 		return;
-	} else {
-		JANUS_LOG(LOG_ERR, "DTMF PT (%d), \n", rtp_header->type);
-	}
-
 	int plen = 0;
 	char *payload_buffer = janus_rtp_payload(buffer, len, &plen);
 	if(plen < 0 || (size_t)plen < sizeof(janus_rtp_rfc2833_payload))
@@ -6473,11 +6469,6 @@ void janus_audiobridge_incoming_rtp(janus_plugin_session *handle, janus_plugin_r
 				rtp->type, participant->codec == JANUS_AUDIOCODEC_PCMA ? 8 : 0);
 			return;
 		}
-
-		if(participant->plainrtp_media.dtmf_pt==rtp->type){
-		JANUS_LOG(LOG_ERR, "DTMF PT (%d), \n", rtp->type);
-		}
-
 		/* Queue the audio packet in the jitter buffer (we won't decode now, there might be buffering involved) */
 		if(participant->jitter) {
 			janus_audiobridge_buffer_packet *pkt = janus_audiobridge_buffer_packet_create(packet);
