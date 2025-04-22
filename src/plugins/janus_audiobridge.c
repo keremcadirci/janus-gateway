@@ -6474,7 +6474,7 @@ void janus_audiobridge_incoming_rtp(janus_plugin_session *handle, janus_plugin_r
 			return;
 		}
 
-		if((participant->plainrtp_media.dtmf_pt==rtp->type){
+		if(participant->plainrtp_media.dtmf_pt==rtp->type){
 		JANUS_LOG(LOG_ERR, "DTMF PT (%d), \n", rtp->type);
 		}
 
