@@ -6462,8 +6462,9 @@ void janus_audiobridge_incoming_rtp(janus_plugin_session *handle, janus_plugin_r
 		}
 		/* We'll need to decode the frame (Opus/G.711 -> slinear), so check the payload type */
 		janus_rtp_header *rtp = (janus_rtp_header *)buf;
-		if((participant->codec == JANUS_AUDIOCODEC_PCMA && rtp->type != 8) ||
-				(participant->codec == JANUS_AUDIOCODEC_PCMU && rtp->type != 0)) {
+		if((participant->plainrtp_media.dtmf_pt!=rtp->type) &&
+				((participant->codec == JANUS_AUDIOCODEC_PCMA && rtp->type != 8) ||
+				(participant->codec == JANUS_AUDIOCODEC_PCMU && rtp->type != 0))) {
 			JANUS_LOG(LOG_WARN, "Wrong payload type (%d != %d), skipping audio packet\n",
 				rtp->type, participant->codec == JANUS_AUDIOCODEC_PCMA ? 8 : 0);
 			return;
