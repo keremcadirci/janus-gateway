@@ -2411,7 +2411,7 @@ static int janus_audiobridge_create_opus_encoder_if_needed(janus_audiobridge_roo
 
 static uint16_t dtmf_keys[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#', 'A', 'B', 'C', 'D'};
 /* Check peer RTP has RFC2833 and push event */
-static void janus_audiobridge_send_rfc2833_event(janus_audiobridge_participant *participant, char *buffer, int len) {
+static void janus_audiobridge_send_dtmf_event(janus_audiobridge_participant *participant, char *buffer, int len) {
 	if(participant->plainrtp_media.dtmf_pt <= 0)
 		return;
 	janus_rtp_header *rtp_header = (janus_rtp_header *)buffer;
@@ -9526,6 +9526,8 @@ static void *janus_audiobridge_participant_thread(void *data) {
 						janus_audiobridge_buffer_packet_destroy(bpkt);
 						break;
 					}
+					/* Handle rtp if rfc2833 event*/
+					janus_audiobridge_send_dtmf_event(participant, buffer, len);
 					rtp = (janus_rtp_header *)buffer;
 					first = FALSE;
 					lost_packets_gap = 0;
@@ -9911,8 +9913,6 @@ static void *janus_audiobridge_plainrtp_relay_thread(void *data) {
 				/* Handle as a WebRTC RTP packet */
 				packet.length = bytes;
 				janus_audiobridge_incoming_rtp(session->handle, &packet);
-				/* Handle rtp if rfc2833 event*/
-				janus_audiobridge_send_rfc2833_event(participant, buffer, bytes);
 				continue;
 			}
 		}
